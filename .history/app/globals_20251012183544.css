@@ -1,5 +1,6 @@
 /* ========== 核心入口 ========== */
-@import "tailwindcss";
+@import "tailwindcss/preflight";      /* 替代 @tailwind base   */
+@import "tailwindcss/utilities";      /* 替代 @tailwind utilities */
 
 /* ========== 主题变量 + 自动生成工具类 ========== */
 @theme {

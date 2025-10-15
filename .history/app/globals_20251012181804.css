@@ -1,5 +1,6 @@
 /* ========== 核心入口 ========== */
-@import "tailwindcss";
+@import "tailwindcss/preflight";      /* 替代 @tailwind base   */
+@import "tailwindcss/utilities";      /* 替代 @tailwind utilities */
 
 /* ========== 主题变量 + 自动生成工具类 ========== */
 @theme {
@@ -78,48 +79,4 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-  }
-}
-
-/* ========== 全局默认样式 ========== */
-@layer base {
-  * {
-    border-color: var(--color-border); /* 等价于 @apply border-border */
-  }
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-  }
-}
-
-/* ========== 自定义背景网格（可选） ========== */
-.bg-grid-slate-100 {
-  background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px),
-                    linear-gradient(to bottom, #f1f5f9 1px, transparent 1px);
-  background-size: 4rem 4rem;
-}
-
-@theme {
-  /* 渐变色 */
-  --color-blue-50: #eff6ff;
-  --color-indigo-50: #eef2ff;
-  --color-purple-50: #faf5ff;
-  --color-blue-100: #dbeafe;
-  --color-purple-100: #f3e8ff;
-  --color-green-100: #dcfce7;
-  --color-slate-50: #f8fafc;
-  --color-slate-100: #f1f5f9;
-  --color-slate-600: #475569;
-  --color-slate-900: #0f172a;
-  --color-blue-600: #2563eb;
-  --color-purple-600: #9333ea;
-  --color-green-600: #16a34a;
-  --color-white: #ffffff;
-
-  /* 阴影 */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-}
+    --input: 217.
