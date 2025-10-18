@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowRight, CheckCircle2 } from "lucide-react"
@@ -52,7 +51,14 @@ export default function RegisterPage() {
               />
             </div>
 
-            <Button className="w-full h-11 text-base" size="lg">
+            <Button 
+              className="w-full h-11 text-base" 
+              size="lg"
+              type="button"
+              aria-label="创建账户"
+              role="button"
+              id="register-btn"
+            >
               创建账户
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>

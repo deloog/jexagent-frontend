@@ -1,6 +1,5 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ArrowRight } from "lucide-react"
@@ -47,7 +46,14 @@ export default function LoginPage() {
               />
             </div>
 
-            <Button className="w-full h-11 text-base" size="lg">
+            <Button 
+              className="w-full h-11 text-base" 
+              size="lg"
+              type="submit"
+              aria-label="登录账户"
+              role="button"
+              id="login-btn"
+            >
               登录
               <ArrowRight className="ml-2 w-4 h-4" />
             </Button>

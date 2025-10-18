@@ -62,9 +62,9 @@ export default function NewTaskPage() {
         router.push(`/dashboard/task/${result.task_id}/progress`)
       }
       
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Task creation failed:', err)
-      setError((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "任务创建失败，请重试")
+      setError(err.response?.data?.detail || "任务创建失败，请重试")
       setIsSubmitting(false)
     }
   }
@@ -151,7 +151,7 @@ export default function NewTaskPage() {
               onChange={(e) => setUserInput(e.target.value)}
               placeholder={
                 selectedScene === "topic-analysis"
-                  ? "例如：最近\"AI Agent\"这个概念很火，我想做一期视频，但不确定切入角度。我的账号主要做技术科普，粉丝以程序员为主..."
+                  ? "例如：最近"AI Agent"这个概念很火，我想做一期视频，但不确定切入角度。我的账号主要做技术科普，粉丝以程序员为主..."
                   : selectedScene === "content-creation"
                   ? "例如：帮我写一篇关于AI Agent的科普文章，面向非技术人员，要通俗易懂，举例子..."
                   : selectedScene === "risk-assessment"

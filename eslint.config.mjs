@@ -10,7 +10,7 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...compat.extends("next/core-web-vitals", "next/typescript", "plugin:react-hooks/recommended", "plugin:sonarjs/recommended"),
   {
     ignores: [
       "node_modules/**",

@@ -62,9 +62,9 @@ export default function NewTaskPage() {
         router.push(`/dashboard/task/${result.task_id}/progress`)
       }
       
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Task creation failed:', err)
-      setError((err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || "任务创建失败，请重试")
+      setError(err.response?.data?.detail || "任务创建失败，请重试")
       setIsSubmitting(false)
     }
   }

@@ -101,6 +101,24 @@
   background-size: 4rem 4rem;
 }
 
+/* ========== CSS 兼容性（一次性） ========== */
+/* 滚动条兼容 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+/* 文本大小调整 */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 @theme {
   /* 渐变色 */
   --color-blue-50: #eff6ff;
