@@ -22,7 +22,8 @@ export default function InquiryPage({ params }: { params: Promise<{ id: string }
   const [intermediateState, setIntermediateState] = useState<unknown>(null)
   const [infoSufficiency, setInfoSufficiency] = useState<number>(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string>("")
+  const [submitOk, setSubmitOk] = useState(false)
+  const [error, setError] = useState("")
   const [isSkipped, setIsSkipped] = useState(false)
 
   // 提前建立WebSocket连接，确保后端推送进度时前端已经连接
@@ -73,8 +74,9 @@ export default function InquiryPage({ params }: { params: Promise<{ id: string }
         intermediate_state: intermediateState
       });
 
-      // 只有在数据发送成功后跳转
-      router.push(`/dashboard/task/${taskId}/progress`);
+      // ✅ 添加成功提示 - 零依赖方案
+      setSubmitOk(true)          // 1. 按钮变绿
+      setTimeout(() => router.push(`/dashboard/task/${taskId}/progress`), 1200) // 2. 仍用 setTimeout，但 1.2 s 足够人眼读完
     } catch (err) {
       console.error('Task execution failed:', err);
       setError("提交失败，请重试");
@@ -202,10 +204,20 @@ export default function InquiryPage({ params }: { params: Promise<{ id: string }
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="flex-1 px-8 py-4 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+              disabled={isSubmitting || submitOk}
+              className={`flex-1 px-8 py-4 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                submitOk 
+                  ? "bg-green-600 text-white cursor-default" 
+                  : isSubmitting 
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                    : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
             >
-              {isSubmitting ? (
+              {submitOk ? (
+                <>
+                  <span>✅ 已提交</span>
+                </>
+              ) : isSubmitting ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>提交中...</span>

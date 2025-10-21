@@ -6,6 +6,7 @@ import { useSocket, ConnectionStatus } from '@/lib/useSocket';
 import { Progress } from '@/components/ui/progress';
 import { Card } from '@/components/ui/card';
 import { taskAPI } from '@/lib/api';
+import { io } from 'socket.io-client';
 
 // ✅ 常量定义 - 便于维护
 const ANIMATION_STEP_DELAY = 50;
@@ -45,7 +46,8 @@ export default function TaskProgressPage() {
     aiMessages,
     isComplete, 
     completionData,
-    connectionStatus 
+    connectionStatus,
+    costData
   } = useSocket(taskId);
 
   // ✅ 动画函数 - 保持原设计，已验证正确
@@ -241,6 +243,7 @@ export default function TaskProgressPage() {
     }
   }, [isComplete, completionData, taskId, router]);
 
+
   // ✅ 组件生命周期管理
   useEffect(() => {
     animationStateRef.current.mounted = true;
@@ -302,10 +305,60 @@ export default function TaskProgressPage() {
           </p>
         </div>
 
+        {/* 🔥 成本显示卡片 */}
+        {costData && (
+          <Card className="p-4 mb-4 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <span>💰</span>
+                <span>实时成本</span>
+              </h3>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-green-600">
+                  ¥{costData.current_cost.toFixed(4)}
+                </div>
+                {costData.phase_cost > 0 && (
+                  <div className="text-xs text-gray-600">
+                    本阶段 +¥{costData.phase_cost.toFixed(4)}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* 成本分解 */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="text-center p-2 bg-white rounded">
+                <div className="text-xs text-gray-600 mb-1">DeepSeek</div>
+                <div className="font-semibold text-sm">
+                  ¥{costData.breakdown.deepseek.toFixed(4)}
+                </div>
+              </div>
+              <div className="text-center p-2 bg-white rounded">
+                <div className="text-xs text-gray-600 mb-1">Kimi</div>
+                <div className="font-semibold text-sm">
+                  ¥{costData.breakdown.kimi.toFixed(4)}
+                </div>
+              </div>
+              <div className="text-center p-2 bg-white rounded">
+                <div className="text-xs text-gray-600 mb-1">Qwen</div>
+                <div className="font-semibold text-sm">
+                  ¥{costData.breakdown.qwen.toFixed(4)}
+                </div>
+              </div>
+            </div>
+            
+            {costData.phase && (
+              <div className="mt-2 text-xs text-gray-600 text-center">
+                当前阶段: {costData.phase}
+              </div>
+            )}
+          </Card>
+        )}
+
         {/* AI消息流 */}
-        <div className="space-y-4 max-h-96 overflow-y-auto">
+        <div className="space-y-3 sm:space-y-4 max-h-[60vh] sm:max-h-96 overflow-y-auto">
           {messages.map((msg, idx) => (
-            <div key={idx} className="p-4 bg-gray-50 rounded-lg">
+            <div key={idx} className="p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-semibold">{msg.actor}</span>
                 <span className="text-sm text-gray-500">{msg.phase}</span>
@@ -315,7 +368,7 @@ export default function TaskProgressPage() {
           ))}
           
           {aiMessages.map((msg, idx) => (
-            <div key={`ai-${idx}`} className="p-4 bg-blue-50 rounded-lg">
+            <div key={`ai-${idx}`} className="p-3 sm:p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <span className="font-semibold">{msg.actor}</span>
               </div>
@@ -333,6 +386,12 @@ export default function TaskProgressPage() {
             <p>🔌 连接状态: {connectionStatus}</p>
             <p>💬 消息数量: {messages.length + aiMessages.length} 条</p>
             <p>🔑 去重键数: {messageKeysRef.current.size} 个</p>
+            <p>💰 成本数据: {costData ? `¥${costData.current_cost.toFixed(4)}` : 'null'}</p>
+            {costData && (
+              <>
+                <p>💰 成本分解: DeepSeek=¥{costData.breakdown.deepseek.toFixed(4)}, Kimi=¥{costData.breakdown.kimi.toFixed(4)}, Qwen=¥{costData.breakdown.qwen.toFixed(4)}</p>
+              </>
+            )}
           </div>
         )}
       </Card>

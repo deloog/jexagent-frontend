@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { taskAPI } from '@/lib/api'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { ResultPageSkeleton } from '../complete/ui/skeleton'
 
 // ========== 类型定义 ==========
 interface TaskResult {
@@ -59,6 +61,17 @@ interface TaskResult {
   }
 }
 
+// 🔥 移到组件外，避免重复创建
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 // ========== 主组件 ==========
 export default function ResultPage() {
   const { id: taskId } = useParams<{ id: string }>()
@@ -69,140 +82,104 @@ export default function ResultPage() {
   const [error, setError] = useState<string | null>(null)
   const [copiedSection, setCopiedSection] = useState<string | null>(null)
   const [isDeepDiveOpen, setIsDeepDiveOpen] = useState(false)
-  const [hasEmpty, setHasEmpty] = useState<boolean>(false)
+  
+  // 🔥 深度定制相关状态
+  const [additionalInfo, setAdditionalInfo] = useState('')
+  const [isSubmittingRefine, setIsSubmittingRefine] = useState(false)
+  const [validationError, setValidationError] = useState<string | null>(null)
 
-  // ========== 日志可追溯 ==========
+  // 获取任务结果
   useEffect(() => {
-    // ✅ 修复：将条件判断移到useEffect内部，确保Hook始终被调用
-    if (!result) {
-      setHasEmpty(false)
-      return;
-    }
-    
-    const output = result.output;
-    
-    // 在useEffect内部重新计算安全变量，避免依赖不稳定
-    const safeKeyActions = output.executive_summary?.key_actions?.filter(Boolean) ?? []
-    const safeHypotheticalAdvice = output.hypothetical_advice?.filter(Boolean) ?? []
-    const safeDivergences = output.divergences?.filter(Boolean) ?? []
-    const safeAuditPhases = output.audit_summary?.phases?.filter(Boolean) ?? []
-    const safeAuditPhasesWithSteps = safeAuditPhases.map(phase => ({
-      ...phase,
-      steps: phase.steps?.filter(Boolean) ?? []
-    }))
-
-    // 检查是否存在空项或缺失关键字段
-    const hasEmptyItems = {
-      key_actions: output.executive_summary?.key_actions?.some(item => !item),
-      hypothetical_advice: output.hypothetical_advice?.some(item => !item || !item.condition || !item.suggestion),
-      divergences: output.divergences?.some(item => !item || !item.issue || !item.ai_a_view || !item.ai_b_view),
-      audit_phases: output.audit_summary?.phases?.some(phase => !phase || !phase.phase || !phase.steps)
-    }
-
-    // ✅ 修复：使用普通函数调用，不调用Hook
-    const hasEmpty = Object.values(hasEmptyItems).some(Boolean)
-    setHasEmpty(hasEmpty)
-
-    if (hasEmpty) {
-      console.warn('[ResultPage] 存在空项或缺失关键字段，已兜底处理', {
-        originalOutput: output,
-        hasEmptyItems,
-        safeKeyActions,
-        safeHypotheticalAdvice,
-        safeDivergences,
-        safeAuditPhasesWithSteps
-      })
-    }
-  }, [result]) // ✅ 移除setHasEmpty依赖，setter函数是稳定的
-
-  // 获取任务结果 - 修复无限循环和数据更新问题
-  useEffect(() => {
-    const MAX_POLL = 20;
-    let polls = 0;
-    let intervalId: NodeJS.Timeout | null = null;
-    let isMounted = true;
-
     const fetchTaskResult = async () => {
-      if (!isMounted || polls >= MAX_POLL) {
-        console.warn('[Result] 轮询超限或组件已卸载，停止');
-        if (intervalId) clearInterval(intervalId);
-        return;
-      }
-      polls++;
-      
       try {
         setLoading(true)
         const taskData = await taskAPI.getTaskResult(taskId)
-        console.log(`📋 获取任务结果... (轮询 ${polls}/${MAX_POLL})`, taskData)
-        
-        if (!isMounted) return;
+        console.log('📋 获取任务结果:', taskData)
         
         if (taskData.status === 'completed' && taskData.output) {
           setResult(taskData)
-          if (intervalId) clearInterval(intervalId);
         } else if (taskData.status === 'failed') {
           setError(taskData.output?.error || '任务执行失败')
-          if (intervalId) clearInterval(intervalId);
-        } else if (taskData.status === 'processing') {
-          // 任务仍在处理中，继续轮询
-          console.log('🔄 任务仍在处理中，继续等待...')
+        } else {
+          setError('任务尚未完成，请返回进度页面查看状态')
         }
       } catch (err) {
         console.error('❌ 获取任务结果失败:', err)
-        if (isMounted) {
-          setError('获取任务结果失败，请稍后重试')
-        }
+        setError('获取任务结果失败，请稍后重试')
       } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+        setLoading(false)
       }
     }
 
     if (taskId) {
       fetchTaskResult()
-      
-      // ✅ 修复轮询机制 - 不依赖result状态
-      intervalId = setInterval(() => {
-        if (!isMounted || polls >= MAX_POLL) {
-          if (intervalId) clearInterval(intervalId);
-          return;
-        }
-        console.log('🔄 轮询获取最新数据...')
-        fetchTaskResult()
-      }, 2000)
-      
-      return () => {
-        isMounted = false;
-        if (intervalId) clearInterval(intervalId);
-      }
     }
-  }, [taskId]) // ✅ 移除result依赖，避免无限循环
+  }, [taskId])
+
+  // 🔥 提交深度定制
+  const handleSubmitRefine = async () => {
+    setValidationError(null)
+    
+    if (!additionalInfo.trim()) {
+      setValidationError('请输入补充信息')
+      return
+    }
+
+    if (additionalInfo.trim().length < 10) {
+      setValidationError('补充信息过短，请提供更详细的信息（至少10个字符）')
+      return
+    }
+
+    setIsSubmittingRefine(true)
+
+    try {
+      const response = await taskAPI.refineTask(taskId, additionalInfo)
+      
+      console.log('✅ 深度定制任务已创建:', response)
+      
+      // 关闭弹窗
+      setIsDeepDiveOpen(false)
+      setValidationError(null)
+      
+      // 显示成功提示
+      toast.success('深度定制任务已创建', {
+        description: '正在跳转到进度页面...'
+      })
+      
+      // 跳转到新任务的进度页
+      setTimeout(() => {
+        router.push(`/dashboard/task/${response.task_id}/progress`)
+      }, 500)
+      
+    } catch (err) {
+      console.error('❌ 深度定制失败:', err)
+      toast.error('深度定制失败', {
+        description: '请稍后重试'
+      })
+      setValidationError('深度定制失败，请稍后重试')
+    } finally {
+      setIsSubmittingRefine(false)
+    }
+  }
 
   // 复制文本到剪贴板
   const copyToClipboard = async (text: string, section: string) => {
     try {
       await navigator.clipboard.writeText(text)
       setCopiedSection(section)
+      toast.success('已复制到剪贴板')
       setTimeout(() => setCopiedSection(null), 2000)
     } catch (err) {
       console.error('复制失败:', err)
+      toast.error('复制失败', {
+        description: '请手动选择并复制'
+      })
     }
   }
 
-  // 格式化日期
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  // 格式化日期（已移到组件外）
 
   // ========== 加载和错误状态 ==========
-  // ✅ 统一渲染路径 - 确保Hook调用顺序稳定
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -232,24 +209,12 @@ export default function ResultPage() {
     )
   }
 
-  // ========== 运行时兜底处理 ==========
-  // 过滤空项并提供默认值（在条件渲染之后定义）
   const output = result.output
-  const safeKeyActions = output.executive_summary?.key_actions?.filter(Boolean) ?? []
-  const safeHypotheticalAdvice = output.hypothetical_advice?.filter(Boolean) ?? []
-  const safeDivergences = output.divergences?.filter(Boolean) ?? []
-  const safeAuditPhases = output.audit_summary?.phases?.filter(Boolean) ?? []
-  
-  // 为每个阶段的安全步骤提供兜底
-  const safeAuditPhasesWithSteps = safeAuditPhases.map(phase => ({
-    ...phase,
-    steps: phase.steps?.filter(Boolean) ?? []
-  }))
 
   // ========== 渲染主内容 ==========
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-5xl mx-auto px-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* ========== 顶部导航 ========== */}
         <div className="mb-6 flex items-center justify-between">
@@ -274,7 +239,7 @@ export default function ResultPage() {
 
         {/* ========== 🎯 核心结论（TL;DR）========== */}
         {output.executive_summary?.tldr && (
-          <Card className="p-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
+          <Card className="p-4 sm:p-6 mb-4 sm:mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200">
             <div className="flex items-start gap-4">
               <div className="text-4xl">🎯</div>
               <div className="flex-1">
@@ -288,14 +253,14 @@ export default function ResultPage() {
         )}
 
         {/* ========== ⚡ 关键行动 ========== */}
-        {safeKeyActions.length > 0 && (
-          <Card className="p-6 mb-6">
+        {output.executive_summary?.key_actions && output.executive_summary.key_actions.length > 0 && (
+          <Card className="p-4 sm:p-6 mb-4 sm:mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <span>⚡</span>
               <span>关键行动</span>
             </h2>
             <div className="space-y-3">
-              {safeKeyActions.map((action, index) => (
+              {output.executive_summary.key_actions.map((action, index) => (
                 <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
                     {index + 1}
@@ -309,7 +274,7 @@ export default function ResultPage() {
 
         {/* ========== ✅ 确定性建议 ========== */}
         {output.certain_advice && (
-          <Card className="p-6 mb-6">
+          <Card className="p-4 sm:p-6 mb-4 sm:mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <span>✅</span>
@@ -351,25 +316,25 @@ export default function ResultPage() {
         )}
 
         {/* ========== 🤔 假设性建议（可折叠）========== */}
-        {safeHypotheticalAdvice.length > 0 && (
-          <Card className="p-6 mb-6">
+        {output.hypothetical_advice && output.hypothetical_advice.length > 0 && (
+          <Card className="p-4 sm:p-6 mb-4 sm:mb-6">
             <details className="group">
               <summary className="text-xl font-bold text-gray-900 cursor-pointer list-none flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span>🤔</span>
                   <span>假设性建议</span>
-                  <Badge variant="secondary">{safeHypotheticalAdvice.length}个场景</Badge>
+                  <Badge variant="secondary">{output.hypothetical_advice.length}个场景</Badge>
                 </span>
                 <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
               </summary>
               
               <div className="mt-4 space-y-4">
-                {safeHypotheticalAdvice.map((advice, index) => (
+                {output.hypothetical_advice.map((advice, index) => (
                   <div key={index} className="border-l-4 border-yellow-400 pl-4 py-2">
                     <h3 className="font-semibold text-gray-800 mb-2">
-                      {index + 1}. {advice.condition ?? '未知条件'}
+                      {index + 1}. {advice.condition}
                     </h3>
-                    <p className="text-gray-700">{advice.suggestion ?? '暂无建议'}</p>
+                    <p className="text-gray-700">{advice.suggestion}</p>
                   </div>
                 ))}
               </div>
@@ -378,8 +343,8 @@ export default function ResultPage() {
         )}
 
         {/* ========== ⚡ 分歧点分析 ========== */}
-        {safeDivergences.length > 0 && (
-          <Card className="p-6 mb-6">
+        {output.divergences && output.divergences.length > 0 && (
+          <Card className="p-4 sm:p-6 mb-4 sm:mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
               <span>⚡</span>
               <span>AI分歧点分析</span>
@@ -387,13 +352,13 @@ export default function ResultPage() {
             </h2>
             
             <div className="space-y-6">
-              {safeDivergences.map((divergence, index) => (
+              {output.divergences.map((divergence, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-4">
                   <h3 className="font-bold text-gray-800 mb-4">
-                    {index + 1}. {divergence.issue ?? '未知问题'}
+                    {index + 1}. {divergence.issue}
                   </h3>
                   
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     {/* AI-A 观点 */}
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <div className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
@@ -401,10 +366,10 @@ export default function ResultPage() {
                         <span>Kimi（深度分析）</span>
                       </div>
                       <p className="text-sm text-blue-900 mb-2">
-                        <strong>观点：</strong>{divergence.ai_a_view ?? '暂无观点'}
+                        <strong>观点：</strong>{divergence.ai_a_view}
                       </p>
                       <p className="text-xs text-blue-700">
-                        <strong>理由：</strong>{divergence.ai_a_reason ?? '暂无理由'}
+                        <strong>理由：</strong>{divergence.ai_a_reason}
                       </p>
                     </div>
                     
@@ -415,10 +380,10 @@ export default function ResultPage() {
                         <span>Qwen（流量视角）</span>
                       </div>
                       <p className="text-sm text-green-900 mb-2">
-                        <strong>观点：</strong>{divergence.ai_b_view ?? '暂无观点'}
+                        <strong>观点：</strong>{divergence.ai_b_view}
                       </p>
                       <p className="text-xs text-green-700">
-                        <strong>理由：</strong>{divergence.ai_b_reason ?? '暂无理由'}
+                        <strong>理由：</strong>{divergence.ai_b_reason}
                       </p>
                     </div>
                   </div>
@@ -429,7 +394,7 @@ export default function ResultPage() {
                       <span>💡</span>
                       <span>我们的综合建议</span>
                     </div>
-                    <p className="text-sm text-yellow-900">{divergence.our_suggestion ?? '暂无建议'}</p>
+                    <p className="text-sm text-yellow-900">{divergence.our_suggestion}</p>
                   </div>
                 </div>
               ))}
@@ -438,14 +403,14 @@ export default function ResultPage() {
         )}
 
         {/* ========== 🔗 下一步行动（勾子设计）========== */}
-        <Card className="p-6 mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200">
+        <Card className="p-4 sm:p-6 mb-4 sm:mb-6 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200">
           <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
             <span>🔗</span>
             <span>下一步行动</span>
           </h2>
           
           <div className="space-y-3">
-            {/* 深度定制 */}
+            {/* 🔥 深度定制 */}
             {output.hooks?.satisfaction_check && (
               <Dialog open={isDeepDiveOpen} onOpenChange={setIsDeepDiveOpen}>
                 <DialogTrigger asChild>
@@ -476,23 +441,41 @@ export default function ResultPage() {
                       </div>
                     ))}
                     
+                    {validationError && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                        {validationError}
+                      </div>
+                    )}
+                    
                     <textarea
                       placeholder="在这里补充更多信息..."
                       className="w-full p-3 border rounded-lg resize-none"
                       rows={4}
+                      value={additionalInfo}
+                      onChange={(e) => setAdditionalInfo(e.target.value)}
                     />
                   </div>
                   
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsDeepDiveOpen(false)}>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsDeepDiveOpen(false)}
+                      disabled={isSubmittingRefine}
+                    >
                       取消
                     </Button>
-                    <Button onClick={() => {
-                      // TODO: 实现深度定制逻辑
-                      alert('深度定制功能将在 Day 47-48 实现')
-                      setIsDeepDiveOpen(false)
-                    }}>
-                      开始深度分析
+                    <Button 
+                      onClick={handleSubmitRefine}
+                      disabled={isSubmittingRefine || !additionalInfo.trim()}
+                    >
+                      {isSubmittingRefine ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          处理中...
+                        </>
+                      ) : (
+                        '开始深度分析'
+                      )}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -532,14 +515,14 @@ export default function ResultPage() {
         </Card>
 
         {/* ========== 📊 审计轨迹（可折叠）========== */}
-        {safeAuditPhasesWithSteps.length > 0 && (
-          <Card className="p-6 mb-6">
+        {output.audit_summary && (
+          <Card className="p-4 sm:p-6 mb-4 sm:mb-6">
             <details className="group">
               <summary className="text-xl font-bold text-gray-900 cursor-pointer list-none flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span>📊</span>
                   <span>审计轨迹</span>
-                  <Badge variant="secondary">{safeAuditPhasesWithSteps.reduce((total, phase) => total + phase.steps.length, 0)}个步骤</Badge>
+                  <Badge variant="secondary">{output.audit_summary.total_steps}个步骤</Badge>
                 </span>
                 <span className="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
               </summary>
@@ -553,26 +536,20 @@ export default function ResultPage() {
                   
                   <TabsContent value="timeline" className="mt-4">
                     <div className="space-y-3">
-                      {safeAuditPhasesWithSteps.map((phase, phaseIndex) => (
+                      {output.audit_summary.phases.map((phase, phaseIndex) => (
                         <div key={phaseIndex}>
                           <h3 className="font-semibold text-gray-800 mb-2 sticky top-0 bg-gray-50 py-2">
-                            {phase.phase ?? '未知阶段'}
+                            {phase.phase}
                           </h3>
                           {phase.steps.map((step, stepIndex) => (
                             <div key={stepIndex} className="border-l-2 border-gray-300 pl-4 pb-3 ml-2">
                               <div className="flex items-start gap-2 mb-1">
-                                <Badge variant="secondary" className="text-xs">{step.actor ?? '未知执行者'}</Badge>
-                                <span className="text-sm text-gray-700">{step.action ?? '未知操作'}</span>
+                                <Badge variant="secondary" className="text-xs">{step.actor}</Badge>
+                                <span className="text-sm text-gray-700">{step.action}</span>
                               </div>
                               <p className="text-xs text-gray-600 mt-1">
-                                {step.reasoning ? (
-                                  <>
-                                    {step.reasoning.substring(0, 100)}
-                                    {step.reasoning.length > 100 && '...'}
-                                  </>
-                                ) : (
-                                  '暂无推理说明'
-                                )}
+                                {step.reasoning.substring(0, 100)}
+                                {step.reasoning.length > 100 && '...'}
                               </p>
                             </div>
                           ))}
@@ -583,10 +560,10 @@ export default function ResultPage() {
                   
                   <TabsContent value="phases" className="mt-4">
                     <div className="grid gap-4">
-                      {safeAuditPhasesWithSteps.map((phase, index) => (
+                      {output.audit_summary.phases.map((phase, index) => (
                         <div key={index} className="p-4 bg-gray-50 rounded-lg">
                           <h3 className="font-semibold text-gray-800 mb-2">
-                            {phase.phase ?? '未知阶段'}
+                            {phase.phase}
                           </h3>
                           <p className="text-sm text-gray-600">
                             {phase.steps.length} 个步骤

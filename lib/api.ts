@@ -95,6 +95,16 @@ export const taskAPI = {
     const response = await apiClient.get(`/tasks/${taskId}`)
     return response.data
   },
+
+  /**
+   * 深度定制 - 补充信息并重新生成建议
+   */
+  refineTask: async (taskId: string, additionalInfo: string) => {
+    const response = await apiClient.post(`/tasks/${taskId}/refine`, {
+      additional_info: additionalInfo
+    })
+    return response.data
+  },
 }
 
 export default apiClient

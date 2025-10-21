@@ -11,6 +11,13 @@ export default function NewTaskPage() {
   const [userInput, setUserInput] = useState<string>("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string>("")
+  const [costEstimate, setCostEstimate] = useState<{
+    min_cost: number
+    avg_cost: number
+    max_cost: number
+    confidence: number
+    description: string
+  } | null>(null)
 
   const scenes = [
     {
@@ -52,6 +59,11 @@ export default function NewTaskPage() {
         scene: selectedScene,
         user_input: userInput
       })
+
+      // 🔥 保存成本预估
+      if (result.cost_estimate) {
+        setCostEstimate(result.cost_estimate)
+      }
 
       // 根据返回结果跳转
       if (result.need_inquiry) {
@@ -109,7 +121,7 @@ export default function NewTaskPage() {
             <label className="block text-lg font-semibold mb-4">
               1. 选择应用场景
             </label>
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {scenes.map((scene) => (
                 <button
                   key={scene.id}
@@ -178,6 +190,25 @@ export default function NewTaskPage() {
           {error && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-800">
               {error}
+            </div>
+          )}
+
+          {/* 成本预估提示 */}
+          {selectedScene && userInput.trim() && costEstimate && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">💰</div>
+                <div>
+                  <h4 className="font-semibold text-green-900 mb-1">成本预估</h4>
+                  <p className="text-sm text-green-800">
+                    预计消耗：¥{costEstimate.min_cost.toFixed(4)} - ¥{costEstimate.max_cost.toFixed(4)}
+                    （平均 ¥{costEstimate.avg_cost.toFixed(4)}）
+                  </p>
+                  <p className="text-xs text-green-700 mt-1">
+                    {costEstimate.description} • 置信度 {(costEstimate.confidence * 100).toFixed(0)}%
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
