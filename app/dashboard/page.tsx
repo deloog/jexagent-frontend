@@ -69,6 +69,19 @@ export default function DashboardPage() {
               </Link>
             </div>
           </div>
+
+          <Link 
+            href="/dashboard/cost-report"
+            className="p-4 bg-white rounded-xl border hover:shadow-md transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="text-3xl">💰</div>
+              <div>
+                <div className="font-semibold">成本报表</div>
+                <div className="text-sm text-gray-600">查看消费统计</div>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* 历史任务 */}

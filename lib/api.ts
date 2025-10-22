@@ -105,6 +105,25 @@ export const taskAPI = {
     })
     return response.data
   },
+
+  /**
+   * 获取成本报表
+   */
+  getCostReport: async (params?: {
+    start_date?: string  // YYYY-MM-DD
+    end_date?: string
+    scene?: string
+  }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.start_date) searchParams.append('start_date', params.start_date)
+    if (params?.end_date) searchParams.append('end_date', params.end_date)
+    if (params?.scene) searchParams.append('scene', params.scene)
+    
+    const response = await apiClient.get(
+      `/tasks/cost-report${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+    )
+    return response.data
+  },
 }
 
 export default apiClient
